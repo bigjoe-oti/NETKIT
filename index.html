@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NET KIT · Daily Internet Usage Tracker · J. Servo LLC</title>
+<link rel="icon" href="/logo.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark;
+    --rx: #2BC9F5;      /* electric-cyan anchor, the marked capsule (bottom right)   */
+    --tx: #FF7A45;      /* orange-red anchor, the marked capsule (bottom, 2nd right) */
+    --accent: #8C5BD9;  /* purple, from the logo's bracket */
+    --live: #2BA08F;    /* teal, from the logo's sphere    */
+    --card: #101A2D;
+    --line: #1C2A44;
+  }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: #0B1220; }
+  .wordmark { font-family: 'Montserrat', sans-serif; letter-spacing: .16em; }
+  .num { font-variant-numeric: tabular-nums; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.35), 0 6px 18px rgba(0,0,0,.28), 0 16px 40px rgba(3,8,20,.35);
+  }
+  /* the two capsules Yousef marked in the 2026-06-11 screenshot: cyan + orange->red */
+  .bar-rx { background: linear-gradient(180deg, #00F0FF 0%, #19A6E8 100%); }
+  .bar-tx { background: linear-gradient(180deg, #FFA040 0%, #FF1E00 100%); }
+  .t-rx { color: var(--rx); }
+  .t-tx { color: var(--tx); }
+  .bar-col { transition: opacity .12s ease; cursor: default; }
+  .bar-col:hover { opacity: .82; }
+  tr.rowline { border-top: 1px solid var(--line); }
+  tr.hoverable:hover { background: rgba(140,91,217,.07); }
+  .live-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--live); display: inline-block;
+    box-shadow: 0 0 0 3px rgba(43,160,143,.18);
+  }
+  .sharebar { height: 5px; border-radius: 9999px; background: #0B1220; overflow: hidden; display: flex; }
+  #tip {
+    position: fixed; pointer-events: none; z-index: 50; display: none;
+    background: #060B16; border: 1px solid #27395C; border-radius: 12px;
+    padding: 8px 10px; font-size: 12px; line-height: 1.5;
+    box-shadow: 0 4px 14px rgba(0,0,0,.5);
+  }
+  select {
+    background: var(--card); border: 1px solid #27395C; border-radius: 9999px;
+    padding: 6px 14px; font-size: 13px; color: #C8D6EE; outline: none;
+  }
+  .footlink { color: var(--rx); text-decoration: none; }
+  .footlink:hover { text-decoration: underline; }
+  .pill {
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .3rem .85rem; border-radius: 9999px;
+    background: #16223A; color: #A8B8D8;
+    font-size: .8rem; font-weight: 600;
+    box-shadow: inset 0 0 0 1px rgba(125,155,205,.16), inset 0 1px 0 rgba(255,255,255,.05), 0 1px 2px rgba(0,0,0,.25);
+  }
+  .pill-sm {
+    padding: .15rem .65rem; font-size: 10px;
+    letter-spacing: .09em; text-transform: uppercase;
+    color: #8195B8; background: #141F36;
+    box-shadow: inset 0 0 0 1px rgba(125,155,205,.12), 0 1px 2px rgba(0,0,0,.2);
+  }
+  .glassbar {
+    position: sticky; top: .75rem; z-index: 40;
+    padding: 14px 22px; border-radius: 9999px;
+    background: rgba(16,26,45,.55);
+    -webkit-backdrop-filter: blur(16px) saturate(1.5);
+    backdrop-filter: blur(16px) saturate(1.5);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.07), inset 0 0 0 1px rgba(140,165,210,.09), 0 10px 30px rgba(3,8,20,.45);
+  }
+  #gNeedle {
+    transition: transform .55s cubic-bezier(.35, 1.2, .45, 1);
+    transform-origin: 100px 95px;
+  }
+  #gArcFg { transition: stroke-dashoffset .55s ease, stroke .3s ease; }
+  #gNow, #gTicks text { font-family: 'Inter', sans-serif; }
+  .num { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="text-slate-200 min-h-screen">
+<div id="tip"></div>
+
+<div class="max-w-5xl mx-auto px-5 py-8">
+
+  <header class="glassbar flex items-center justify-between flex-wrap gap-4 mb-8">
+    <div class="flex items-center gap-4">
+      <img src="/logo.png" alt="J. Servo LLC" class="w-12 h-12">
+      <div>
+        <h1 class="wordmark text-xl font-extrabold text-white">NET <span style="color:var(--accent)">KIT</span></h1>
+        <p class="text-sm text-slate-400 mt-0.5">Daily Internet Usage Tracker · NETKIT belongs to <a href="https://jservo.com" target="_blank" class="footlink">J.&nbsp;Servo&nbsp;LLC</a> Smart Tech Stack</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3 text-sm">
+      <select id="ifaceSel"></select>
+      <span id="updated" class="text-slate-500 num"></span>
+    </div>
+  </header>
+
+  <div id="collecting" class="hidden card px-5 py-4 mb-6 text-sm text-amber-300/90">
+    Database is fresh. vnStat writes every 5 minutes, so the first numbers land shortly. Leave the daemon running and history builds itself.
+  </div>
+
+  <!-- Hero stats -->
+  <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="card px-5 py-4">
+      <p class="pill pill-sm mb-2">Today</p>
+      <p id="todayTotal" class="text-2xl font-semibold text-white num">–</p>
+      <p class="text-xs mt-1 num"><span class="t-rx" id="todayRx">–</span> down · <span class="t-tx" id="todayTx">–</span> up</p>
+    </div>
+    <div class="card px-5 py-4">
+      <p class="pill pill-sm mb-2">This month</p>
+      <p id="monthTotal" class="text-2xl font-semibold text-white num">–</p>
+      <p class="text-xs mt-1 text-slate-500" id="monthName">–</p>
+    </div>
+    <div class="card px-5 py-4">
+      <p class="pill pill-sm mb-2">Daily average</p>
+      <p id="dailyAvg" class="text-2xl font-semibold text-white num">–</p>
+      <p class="text-xs mt-1 text-slate-500" id="avgBasis">–</p>
+    </div>
+    <div class="card px-5 py-4">
+      <p class="pill pill-sm mb-2">Last 5 min rate</p>
+      <p id="rate" class="text-2xl font-semibold text-white num">–</p>
+      <p class="text-xs mt-1 text-slate-500">avg over latest tick</p>
+    </div>
+  </section>
+
+  <!-- Connection & ISP -->
+  <section class="card px-5 py-5 mb-6">
+    <div class="grid md:grid-cols-5 gap-6">
+      <div class="md:col-span-2">
+        <h2 class="pill mb-3">Your connection</h2>
+        <dl class="text-sm space-y-2">
+          <div class="flex justify-between"><dt class="text-slate-500">Public IP</dt><dd id="ispIp" class="num font-medium" style="color:var(--live)">–</dd></div>
+          <div class="flex justify-between"><dt class="text-slate-500">ISP</dt><dd id="ispName" class="font-medium text-white text-right">–</dd></div>
+          <div class="flex justify-between"><dt class="text-slate-500">ASN</dt><dd id="ispAsn" class="num">–</dd></div>
+          <div class="flex justify-between"><dt class="text-slate-500">Location</dt><dd id="ispLoc" class="text-right">–</dd></div>
+        </dl>
+        <p class="text-xs text-slate-600 mt-3">Lookup via <span id="ispSrc">–</span>, cached 10 min</p>
+        <div class="mt-4">
+          <p class="text-xs uppercase tracking-wider text-slate-500 mb-2">IP change log</p>
+          <div id="ipLog" class="text-xs text-slate-500 num space-y-1">
+            <div>Watching, checks every 10 min</div>
+          </div>
+        </div>
+      </div>
+      <div class="md:col-span-3 md:border-l md:border-[#1C2A44] md:pl-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="pill">Speed test</h2>
+          <button id="speedBtn" class="text-sm font-medium px-5 py-1.5 rounded-full text-white"
+                  style="background:var(--accent)">Run speed test</button>
+        </div>
+        <div id="gaugeWrap" class="hidden mb-4">
+          <div class="flex items-center gap-6">
+            <svg viewBox="0 0 200 150" class="w-56 shrink-0">
+              <defs>
+                <linearGradient id="gradRx" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#00F0FF"/><stop offset="100%" stop-color="#19A6E8"/>
+                </linearGradient>
+                <linearGradient id="gradTx" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#FFA040"/><stop offset="100%" stop-color="#FF1E00"/>
+                </linearGradient>
+              </defs>
+              <path id="gArcBg" fill="none" stroke="#1C2A44" stroke-width="9" stroke-linecap="round"/>
+              <path id="gArcFg" fill="none" stroke="url(#gradRx)" stroke-width="9" stroke-linecap="round"/>
+              <g id="gTicks"></g>
+              <line id="gNeedle" x1="100" y1="95" x2="100" y2="40" stroke="#8C5BD9" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="100" cy="95" r="6" fill="#101A2D" stroke="#8C5BD9" stroke-width="2.5"/>
+              <text id="gNow" x="100" y="127" text-anchor="middle" fill="#FFFFFF" font-size="21" font-weight="600">0</text>
+              <text x="100" y="141" text-anchor="middle" fill="#64748B" font-size="9">Mbit/s live</text>
+            </svg>
+            <div class="text-sm space-y-2 num">
+              <p id="gPhase" class="text-xs uppercase tracking-wider" style="color:var(--live)">warming up</p>
+              <p><span class="t-rx font-semibold text-lg" id="gDown">0.0</span> <span class="text-xs text-slate-500">Mbit/s down</span></p>
+              <p><span class="t-tx font-semibold text-lg" id="gUp">0.0</span> <span class="text-xs text-slate-500">Mbit/s up</span></p>
+              <p class="text-xs text-slate-500">session peak <span id="gPeak" class="text-slate-300">0</span> Mbit/s</p>
+            </div>
+          </div>
+        </div>
+        <div id="stResults" class="grid grid-cols-3 gap-4 mb-3">
+          <div>
+            <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Download</p>
+            <p class="text-2xl font-semibold num"><span id="stDown" class="t-rx">–</span><span class="text-xs text-slate-500 ml-1">Mbit/s</span></p>
+          </div>
+          <div>
+            <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Upload</p>
+            <p class="text-2xl font-semibold num"><span id="stUp" class="t-tx">–</span><span class="text-xs text-slate-500 ml-1">Mbit/s</span></p>
+          </div>
+          <div>
+            <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Idle latency</p>
+            <p class="text-2xl font-semibold text-white num"><span id="stRtt">–</span><span class="text-xs text-slate-500 ml-1">ms</span></p>
+          </div>
+        </div>
+        <p id="stMeta" class="text-xs text-slate-500 mb-2">No test run yet. The test saturates the link for about a minute.</p>
+        <div id="stHistory" class="text-xs text-slate-500 num space-y-1"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Today by hour -->
+  <section class="card px-5 py-5 mb-6">
+    <div class="flex items-baseline justify-between mb-4">
+      <h2 class="pill">Today, hour by hour</h2>
+      <p class="text-xs text-slate-500"><span class="inline-block w-2.5 h-2.5 rounded-sm bar-rx align-middle"></span> download&nbsp;&nbsp;<span class="inline-block w-2.5 h-2.5 rounded-sm bar-tx align-middle"></span> upload</p>
+    </div>
+    <div id="hourChart"></div>
+  </section>
+
+  <!-- Last 30 days -->
+  <section class="card px-5 py-5 mb-6">
+    <h2 class="pill mb-4">Last 30 days</h2>
+    <div id="dayChart"></div>
+  </section>
+
+  <!-- Live panels -->
+  <div class="grid lg:grid-cols-2 gap-6 mb-6">
+    <section class="card px-5 py-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="pill"><span class="live-dot"></span>Applications on the wire</h2>
+        <span class="text-xs text-slate-500">top 12 by volume</span>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="text-xs text-slate-500 text-left">
+          <th class="font-medium pb-2">App</th>
+          <th class="font-medium pb-2 text-right">Down</th>
+          <th class="font-medium pb-2 text-right">Up</th>
+          <th class="font-medium pb-2 text-right" title="change since previous refresh">Δ 60s</th>
+        </tr></thead>
+        <tbody id="appRows"><tr><td class="py-2 text-slate-500" colspan="4">Sampling…</td></tr></tbody>
+      </table>
+    </section>
+
+    <section class="card px-5 py-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="pill"><span class="live-dot"></span>Ports &amp; protocols</h2>
+        <span class="text-xs text-slate-500">top 12 by volume</span>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="text-xs text-slate-500 text-left">
+          <th class="font-medium pb-2">Service</th>
+          <th class="font-medium pb-2 text-right">Conns</th>
+          <th class="font-medium pb-2 text-right">Down</th>
+          <th class="font-medium pb-2 text-right">Up</th>
+        </tr></thead>
+        <tbody id="portRows"><tr><td class="py-2 text-slate-500" colspan="4">Sampling…</td></tr></tbody>
+      </table>
+    </section>
+  </div>
+
+  <p class="text-xs text-slate-600 mb-6 px-1">
+    Live panels are operational data from macOS <code>nettop</code>: counters run since each app or
+    connection started and reset when it quits or the Mac reboots. The daily ledger above comes from
+    vnStat's persistent database and is unaffected.
+  </p>
+
+  <div class="grid md:grid-cols-2 gap-6 mb-10">
+    <!-- Months -->
+    <section class="card px-5 py-5">
+      <h2 class="pill mb-3">By month</h2>
+      <table class="w-full text-sm num">
+        <thead><tr class="text-xs text-slate-500 text-left">
+          <th class="font-medium pb-2">Month</th>
+          <th class="font-medium pb-2 text-right">Down</th>
+          <th class="font-medium pb-2 text-right">Up</th>
+          <th class="font-medium pb-2 text-right">Total</th>
+        </tr></thead>
+        <tbody id="monthRows"></tbody>
+      </table>
+    </section>
+    <!-- Top days -->
+    <section class="card px-5 py-5">
+      <h2 class="pill mb-3">Heaviest days on record</h2>
+      <ol id="topDays" class="text-sm space-y-2 num"></ol>
+    </section>
+  </div>
+
+  <footer class="border-t border-[#1C2A44] pt-5 pb-8 flex items-center justify-between flex-wrap gap-3">
+    <div class="flex items-center gap-3">
+      <img src="/logo.png" alt="J. Servo LLC" class="w-7 h-7">
+      <p class="text-xs text-slate-500">
+        NET&nbsp;KIT belongs to <a href="https://jservo.com" target="_blank" class="footlink">J.&nbsp;Servo&nbsp;LLC</a> Smart Tech Stack · © 2026 J.&nbsp;Servo&nbsp;LLC
+      </p>
+    </div>
+    <p class="text-xs text-slate-600">
+      Data engines: <a href="https://github.com/vergoh/vnstat" target="_blank" class="footlink">vnStat</a> (daily ledger) · macOS nettop (live view) · refreshes every 60&nbsp;s
+    </p>
+  </footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const tip = $('tip');
+let DATA = null, IFACE = localStorage.getItem('netdash.iface') || 'en0';
+let prevApps = null;
+
+const fmt = b => {
+  if (b == null) return '–';
+  const u = ['B','KB','MB','GB','TB']; let i = 0;
+  while (b >= 1024 && i < u.length-1) { b /= 1024; i++; }
+  return (i === 0 ? b : b.toFixed(b >= 100 ? 0 : b >= 10 ? 1 : 2)) + ' ' + u[i];
+};
+const fmtRate = bps => {
+  const bits = bps * 8, u = ['bit/s','kbit/s','Mbit/s','Gbit/s'];
+  let v = bits, i = 0;
+  while (v >= 1000 && i < u.length-1) { v /= 1000; i++; }
+  return v.toFixed(v >= 10 ? 0 : 1) + ' ' + u[i];
+};
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const dkey = d => `${d.year}-${String(d.month).padStart(2,'0')}-${String(d.day).padStart(2,'0')}`;
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function showTip(e, html) {
+  tip.innerHTML = html; tip.style.display = 'block';
+  tip.style.left = Math.min(e.clientX + 14, innerWidth - 180) + 'px';
+  tip.style.top = (e.clientY - 10) + 'px';
+}
+function hideTip() { tip.style.display = 'none'; }
+
+const el = (tag, cls) => { const d = document.createElement(tag); d.className = cls; return d; };
+
+function chart(container, entries, opts) {
+  // y-axis labels + gridlines + stacked bars + per-slot x ticks
+  const slots = opts.slots ?? entries.length;
+  const max = Math.max(1, ...entries.map(e => e ? e.rx + e.tx : 0));
+  const hasData = entries.some(e => e && (e.rx + e.tx) > 0);
+  container.innerHTML = '';
+
+  const row = el('div', 'flex gap-2');
+  const yCol = el('div', `w-10 shrink-0 flex flex-col justify-between items-end text-[10px] text-slate-500 num ${opts.h}`);
+  yCol.innerHTML = hasData
+    ? `<span>${fmt(max)}</span><span>${fmt(max/2)}</span><span>0</span>`
+    : '<span></span><span></span><span></span>';
+
+  const plot = el('div', `relative flex-1 ${opts.h}`);
+  const grid = el('div', 'absolute inset-0');
+  [0, 25, 50, 75, 100].forEach(p => {
+    const g = document.createElement('div');
+    g.style.cssText = `position:absolute;left:0;right:0;top:${p}%;border-top:1px ` +
+      (p === 100 ? 'solid #27395C' : p % 50 === 0 ? 'solid #1C2A44' : 'dashed #141F36');
+    grid.append(g);
+  });
+  const barsRow = el('div', 'relative flex items-end gap-1 h-full');
+
+  for (let i = 0; i < slots; i++) {
+    const e = entries[i];
+    const col = el('div', 'bar-col flex-1 h-full flex flex-col justify-end');
+    if (i === opts.now) col.style.background = 'rgba(140,91,217,.09)';
+    if (e && (e.rx + e.tx) > 0) {
+      const tx = el('div', 'bar-tx rounded-t-full');
+      tx.style.height = Math.max(1, e.tx / max * 100) + '%';
+      const rx = el('div', 'bar-rx' + (e.tx > 0 ? '' : ' rounded-t-full'));
+      rx.style.height = Math.max(2, e.rx / max * 100) + '%';
+      col.append(tx, rx);
+      col.addEventListener('mousemove', ev => showTip(ev,
+        `<b>${opts.label(e, i)}</b><br>↓ ${fmt(e.rx)} &nbsp; ↑ ${fmt(e.tx)}<br>Σ ${fmt(e.rx + e.tx)}`));
+      col.addEventListener('mouseleave', hideTip);
+    } else {
+      const stub = el('div', 'rounded-t-sm');
+      stub.style.cssText = 'height:2px;background:#1C2A44';
+      col.append(stub);
+    }
+    barsRow.append(col);
+  }
+
+  plot.append(grid, barsRow);
+  row.append(yCol, plot);
+
+  const xRow = el('div', 'flex gap-1 mt-1.5 ml-12');
+  for (let i = 0; i < slots; i++) {
+    const cell = el('div', 'flex-1 text-center text-[10px] num whitespace-nowrap ' +
+      (i === opts.now ? 'font-semibold' : 'text-slate-600'));
+    if (i === opts.now) cell.style.color = 'var(--accent)';
+    cell.textContent = opts.xTick ? (opts.xTick(entries[i], i) || '') : '';
+    xRow.append(cell);
+  }
+  container.append(row, xRow);
+}
+
+function render() {
+  if (!DATA) return;
+  const ifaces = DATA.interfaces.filter(i => !['gif0','stf0','lo0'].includes(i.name));
+  const sel = $('ifaceSel');
+  sel.innerHTML = ifaces.map(i => {
+    const tot = i.traffic.total.rx + i.traffic.total.tx;
+    return `<option value="${i.name}" ${i.name === IFACE ? 'selected' : ''}>${i.name}${tot ? ' · ' + fmt(tot) : ''}</option>`;
+  }).join('');
+  const itf = ifaces.find(i => i.name === IFACE) || ifaces[0];
+  if (!itf) return;
+  const t = itf.traffic;
+  const now = new Date();
+  const todayKey = dkey({year: now.getFullYear(), month: now.getMonth()+1, day: now.getDate()});
+
+  const anyData = (t.total.rx + t.total.tx) > 0;
+  $('collecting').classList.toggle('hidden', anyData);
+
+  const today = t.day.find(d => dkey(d.date) === todayKey);
+  $('todayTotal').textContent = today ? fmt(today.rx + today.tx) : fmt(0);
+  $('todayRx').textContent = fmt(today ? today.rx : 0);
+  $('todayTx').textContent = fmt(today ? today.tx : 0);
+
+  const m = t.month.find(x => x.date.year === now.getFullYear() && x.date.month === now.getMonth()+1);
+  $('monthTotal').textContent = m ? fmt(m.rx + m.tx) : fmt(0);
+  $('monthName').textContent = MONTHS[now.getMonth()] + ' ' + now.getFullYear();
+
+  const days = t.day.slice().sort((a,b) => dkey(a.date) < dkey(b.date) ? -1 : 1);
+  if (days.length) {
+    const sum = days.reduce((s,d) => s + d.rx + d.tx, 0);
+    $('dailyAvg').textContent = fmt(sum / days.length);
+    $('avgBasis').textContent = `across ${days.length} recorded day${days.length > 1 ? 's' : ''}`;
+  }
+
+  const fm = t.fiveminute[t.fiveminute.length - 1];
+  $('rate').textContent = fm ? fmtRate((fm.rx + fm.tx) / 300) : '–';
+
+  const hours = Array(24).fill(null);
+  t.hour.forEach(h => { if (dkey(h.date) === todayKey) hours[h.time.hour] = h; });
+  const nowH = now.getHours();
+  chart($('hourChart'), hours, {
+    h: 'h-44', slots: 24, now: nowH,
+    label: e => `${String(e.time.hour).padStart(2,'0')}:00`,
+    xTick: (e, i) => (i === nowH || i % 3 === 0) ? String(i).padStart(2,'0') : '',
+  });
+
+  const last30 = days.slice(-30);
+  const isTodayLast = last30.length && dkey(last30[last30.length-1].date) === todayKey;
+  const step = Math.max(1, Math.ceil(last30.length / 7));
+  chart($('dayChart'), last30, {
+    h: 'h-56', now: isTodayLast ? last30.length - 1 : undefined,
+    label: e => dkey(e.date),
+    xTick: (e, i) => {
+      if (!e) return '';
+      if (isTodayLast && i === last30.length - 1) return 'today';
+      if (i % step === 0) return e.date.day === 1 ? MONTHS[e.date.month-1] + ' 1' : String(e.date.day);
+      return '';
+    },
+  });
+
+  $('monthRows').innerHTML = t.month.slice().reverse().map(x => `
+    <tr class="rowline">
+      <td class="py-2">${MONTHS[x.date.month-1]} ${x.date.year}</td>
+      <td class="py-2 text-right t-rx">${fmt(x.rx)}</td>
+      <td class="py-2 text-right t-tx">${fmt(x.tx)}</td>
+      <td class="py-2 text-right font-medium text-white">${fmt(x.rx + x.tx)}</td>
+    </tr>`).join('') || '<tr><td class="py-2 text-slate-500" colspan="4">No full data yet</td></tr>';
+
+  $('topDays').innerHTML = t.top.slice(0, 8).map((d, i) => `
+    <li class="flex justify-between border-t border-[#1C2A44] pt-2 first:border-0 first:pt-0">
+      <span><span class="text-slate-500 mr-2">${i+1}.</span>${dkey(d.date)}</span>
+      <span class="font-medium text-white">${fmt(d.rx + d.tx)}</span>
+    </li>`).join('') || '<li class="text-slate-500">No full data yet</li>';
+
+  $('updated').textContent = 'updated ' + now.toTimeString().slice(0,5);
+}
+
+function renderLive(live) {
+  const apps = live.apps.slice(0, 12);
+  const maxA = Math.max(1, ...apps.map(a => a.rx + a.tx));
+  $('appRows').innerHTML = apps.map(a => {
+    let delta = '–';
+    if (prevApps && prevApps[a.name] != null) {
+      const d = (a.rx + a.tx) - prevApps[a.name];
+      delta = d > 0 ? '+' + fmt(d) : 'idle';
+    }
+    const share = (a.rx + a.tx) / maxA * 100;
+    const rxw = a.rx / (a.rx + a.tx) * share, txw = share - rxw;
+    return `
+    <tr class="rowline hoverable">
+      <td class="py-2 pr-2">
+        <div class="truncate max-w-[160px]" title="${esc(a.name)}">${esc(a.name)}</div>
+        <div class="sharebar mt-1"><span class="bar-rx" style="width:${rxw}%"></span><span class="bar-tx" style="width:${txw}%"></span></div>
+      </td>
+      <td class="py-2 text-right t-rx num align-top">${fmt(a.rx)}</td>
+      <td class="py-2 text-right t-tx num align-top">${fmt(a.tx)}</td>
+      <td class="py-2 text-right num align-top ${delta === 'idle' ? 'text-slate-600' : 'text-emerald-400'}">${delta}</td>
+    </tr>`;
+  }).join('') || '<tr><td class="py-2 text-slate-500" colspan="4">Nothing on the wire</td></tr>';
+
+  prevApps = Object.fromEntries(live.apps.map(a => [a.name, a.rx + a.tx]));
+
+  $('portRows').innerHTML = live.ports.slice(0, 12).map(p => `
+    <tr class="rowline hoverable">
+      <td class="py-2">
+        ${p.service ? esc(p.service) : 'Port ' + p.port}
+        <span class="text-xs text-slate-500 num">· ${p.port}/${p.proto}</span>
+      </td>
+      <td class="py-2 text-right text-slate-400 num">${p.conns}</td>
+      <td class="py-2 text-right t-rx num">${fmt(p.rx)}</td>
+      <td class="py-2 text-right t-tx num">${fmt(p.tx)}</td>
+    </tr>`).join('') || '<tr><td class="py-2 text-slate-500" colspan="4">Nothing observed</td></tr>';
+}
+
+function renderSpeed(rec, isLatest) {
+  if (!rec) return;
+  $('stDown').textContent = rec.down_mbps;
+  $('stUp').textContent = rec.up_mbps;
+  $('stRtt').textContent = rec.rtt_ms;
+  const when = new Date(rec.ts * 1000);
+  $('stMeta').textContent = (isLatest ? 'Last test ' : 'Tested ') +
+    when.toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) +
+    ` · responsiveness ${rec.dl_rpm} RPM down / ${rec.ul_rpm} RPM up · server: ${rec.endpoint}`;
+}
+
+function renderSpeedHistory(hist) {
+  $('stHistory').innerHTML = hist.slice(1, 6).map(r => {
+    const d = new Date(r.ts * 1000);
+    return `<div class="flex justify-between border-t border-[#1C2A44] pt-1">
+      <span>${d.toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>
+      <span><span class="t-rx">${r.down_mbps}</span> / <span class="t-tx">${r.up_mbps}</span> Mbit/s · ${r.rtt_ms} ms</span>
+    </div>`;
+  }).join('');
+}
+
+async function loadIsp() {
+  try {
+    const j = await (await fetch('/api/isp')).json();
+    if (j.error) { $('ispName').textContent = 'lookup failed'; return; }
+    $('ispIp').textContent = j.ip || '–';
+    $('ispName').textContent = j.isp || '–';
+    const ISP_BRAND = { vodafone: '#E60000', orange: '#FF7900' };
+    const brandKey = Object.keys(ISP_BRAND).find(k => (j.isp || '').toLowerCase().includes(k));
+    $('ispName').style.color = brandKey ? ISP_BRAND[brandKey] : '';
+    $('ispAsn').textContent = j.asn || '–';
+    $('ispLoc').textContent = [j.city, j.country].filter(Boolean).join(', ') || j.timezone || '–';
+    $('ispSrc').textContent = j.source || '–';
+  } catch (e) { $('ispName').textContent = 'lookup failed'; }
+}
+
+async function loadIpLog() {
+  try {
+    const hist = await (await fetch('/api/ip/history')).json();
+    if (!hist.length) return;
+    $('ipLog').innerHTML = hist.slice(0, 4).map((r, i) => {
+      const d = new Date(r.ts * 1000);
+      return `<div class="flex justify-between border-t border-[#1C2A44] pt-1 first:border-0 first:pt-0">
+        <span>${d.toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>
+        <span class="${i === 0 ? 'text-white' : ''}">${r.ip}${i === hist.length - 1 ? ' · first seen' : ''}</span>
+      </div>`;
+    }).join('');
+  } catch (e) { /* keep placeholder */ }
+}
+
+async function loadSpeedHistory() {
+  try {
+    const hist = await (await fetch('/api/speedtest/history')).json();
+    if (hist.length) { renderSpeed(hist[0], true); renderSpeedHistory(hist); }
+  } catch (e) { /* panel keeps defaults */ }
+}
+
+// ----- RPM-style gauge: 240-degree dial, needle driven by real en0 counters -----
+const GAUGE = { max: 250, sweep: 240, r: 80, cx: 100, cy: 95 };
+
+function gPoint(frac, r) {
+  const a = (-GAUGE.sweep/2 + GAUGE.sweep * frac) * Math.PI / 180;
+  return [GAUGE.cx + r * Math.sin(a), GAUGE.cy - r * Math.cos(a)];
+}
+
+function gaugeBuild() {
+  const [x0, y0] = gPoint(0, GAUGE.r), [x1, y1] = gPoint(1, GAUGE.r);
+  const d = `M ${x0} ${y0} A ${GAUGE.r} ${GAUGE.r} 0 1 1 ${x1} ${y1}`;
+  $('gArcBg').setAttribute('d', d);
+  const fg = $('gArcFg');
+  fg.setAttribute('d', d);
+  GAUGE.len = fg.getTotalLength();
+  fg.style.strokeDasharray = GAUGE.len;
+  fg.style.strokeDashoffset = GAUGE.len;
+  const ticks = $('gTicks');
+  ticks.innerHTML = '';
+  for (let i = 0; i <= 10; i++) {
+    const major = i % 2 === 0;
+    const [ax, ay] = gPoint(i/10, GAUGE.r - 14);
+    const [bx, by] = gPoint(i/10, GAUGE.r - (major ? 24 : 19));
+    ticks.innerHTML += `<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="${major ? '#64748B' : '#334766'}" stroke-width="${major ? 1.6 : 1}"/>`;
+    if (major) {
+      const [tx_, ty_] = gPoint(i/10, GAUGE.r - 34);
+      ticks.innerHTML += `<text x="${tx_}" y="${ty_ + 3}" text-anchor="middle" fill="#64748B" font-size="8.5" class="num">${Math.round(GAUGE.max * i / 10)}</text>`;
+    }
+  }
+}
+
+function gaugeSet(mbps, phase) {
+  if (mbps > GAUGE.max * 0.97) { GAUGE.max *= 2; gaugeBuild(); }  // rescale, never peg
+  const frac = Math.min(1, mbps / GAUGE.max);
+  $('gNeedle').style.transform = `rotate(${-GAUGE.sweep/2 + GAUGE.sweep * frac}deg)`;
+  const fg = $('gArcFg');
+  fg.style.strokeDashoffset = GAUGE.len * (1 - frac);
+  fg.style.stroke = phase === 'up' ? 'url(#gradTx)' : 'url(#gradRx)';
+  $('gNow').textContent = mbps >= 100 ? Math.round(mbps) : mbps.toFixed(1);
+}
+
+$('speedBtn').addEventListener('click', async () => {
+  const btn = $('speedBtn');
+  btn.disabled = true;
+  btn.textContent = 'Measuring…';
+  btn.style.opacity = .6;
+  GAUGE.max = 250;
+  gaugeBuild();
+  gaugeSet(0, 'down');
+  $('gPhase').textContent = 'warming up';
+  $('gPeak').textContent = '0';
+  $('gaugeWrap').classList.remove('hidden');
+  $('stResults').classList.add('hidden');
+  $('stMeta').textContent = 'Live needle reads the real en0 interface counters twice a second.';
+
+  let prev = null, peak = 0;
+  const poll = setInterval(async () => {
+    try {
+      const s = await (await fetch('/api/ifstats')).json();
+      if (prev) {
+        const dt = Math.max(0.2, s.ts - prev.ts);
+        const down = Math.max(0, (s.rx - prev.rx) * 8 / dt / 1e6);
+        const up = Math.max(0, (s.tx - prev.tx) * 8 / dt / 1e6);
+        const v = Math.max(down, up);
+        peak = Math.max(peak, v);
+        gaugeSet(v, down >= up ? 'down' : 'up');
+        $('gDown').textContent = down >= 100 ? Math.round(down) : down.toFixed(1);
+        $('gUp').textContent = up >= 100 ? Math.round(up) : up.toFixed(1);
+        $('gPeak').textContent = Math.round(peak);
+        $('gPhase').textContent = v < 2 ? 'warming up' : (down >= up ? 'download phase' : 'upload phase');
+      }
+      prev = s;
+    } catch (e) { /* skip a beat */ }
+  }, 500);
+
+  try {
+    const r = await fetch('/api/speedtest', {method: 'POST'});
+    const rec = await r.json();
+    if (rec.error) { $('stMeta').textContent = 'Test failed: ' + rec.error; }
+    else { renderSpeed(rec, false); loadSpeedHistory(); }
+  } catch (e) {
+    $('stMeta').textContent = 'Test failed: ' + e.message;
+  } finally {
+    clearInterval(poll);
+    $('gPhase').textContent = 'settling';
+    gaugeSet(0, 'down');
+    setTimeout(() => {
+      $('gaugeWrap').classList.add('hidden');
+      $('stResults').classList.remove('hidden');
+    }, 900);
+    btn.disabled = false;
+    btn.textContent = 'Run speed test';
+    btn.style.opacity = 1;
+  }
+});
+
+$('ifaceSel').addEventListener('change', e => {
+  IFACE = e.target.value;
+  localStorage.setItem('netdash.iface', IFACE);
+  render();
+});
+
+async function load() {
+  try {
+    const r = await fetch('/api');
+    DATA = await r.json();
+    render();
+  } catch (e) {
+    $('updated').textContent = 'fetch failed, retrying';
+  }
+  try {
+    const r = await fetch('/api/live');
+    renderLive(await r.json());
+  } catch (e) { /* live panels keep last state */ }
+}
+load();
+loadIsp();
+loadSpeedHistory();
+loadIpLog();
+setInterval(load, 60000);
+setInterval(loadIsp, 600000);
+setInterval(loadIpLog, 600000);
+</script>
+</body>
+</html>

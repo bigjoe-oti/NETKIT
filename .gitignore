@@ -1,0 +1,4 @@
+# personal telemetry - never publish
+ip_history.jsonl
+speedtests.jsonl
+.DS_Store
