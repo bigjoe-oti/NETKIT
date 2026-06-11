@@ -26,40 +26,153 @@ A zero-dependency, cross-platform dashboard for measuring and tracking internet 
 
 ✅ verified on a real host · ⚙️ implemented, depends on the named tool being installed; degrades gracefully if absent. macOS is the reference platform; Linux/Windows paths are implemented stdlib-only and validated in CI (import + boot), but per-OS field testing is ongoing.
 
-## Install & run
+## Quick start
 
-**Run from source:**
+The fastest path on any OS: download `netkit.pyz` from the [latest release](https://github.com/bigjoe-oti/NETKIT/releases/latest) and run it with Python, then open **http://127.0.0.1:8787** in your browser. Per-OS detail below.
+
+Requirement everywhere: **Python 3.9 or newer** (`python3 --version`). NET KIT has no other dependencies.
+
+---
+
+### 🍎 macOS
+
+**1. Check Python** (macOS ships it; if missing, `brew install python` or get it from [python.org](https://www.python.org/downloads/)):
 ```sh
-git clone https://github.com/bigjoe-oti/NETKIT.git
-cd NETKIT
-python3 -m netkit            # open http://127.0.0.1:8787
+python3 --version
 ```
 
-**Single-file executable** (no install — runs anywhere with Python 3.9+):
-```sh
-make build                  # produces dist/netkit.pyz
-./dist/netkit.pyz           # or: python3 dist/netkit.pyz
-```
-Pre-built `netkit.pyz` is also attached to each [GitHub release](https://github.com/bigjoe-oti/NETKIT/releases).
+**2. Install and run** — pick one:
 
-**As a command** (`pipx`):
 ```sh
-make install                # pipx install . → `netkit` on your PATH
+# A) One-file executable (simplest)
+curl -L -o netkit.pyz https://github.com/bigjoe-oti/NETKIT/releases/latest/download/netkit.pyz
+python3 netkit.pyz
+
+# B) As a command on your PATH
+git clone https://github.com/bigjoe-oti/NETKIT.git && cd NETKIT
+make install        # pipx install . → `netkit`
 netkit
+
+# C) From source, no install
+git clone https://github.com/bigjoe-oti/NETKIT.git && cd NETKIT
+python3 -m netkit
 ```
 
-**Optional daily ledger engine** (richer history; recommended on macOS/Linux):
+**3. (Recommended) richer daily history with vnStat:**
 ```sh
-brew install vnstat && brew services start vnstat   # macOS
+brew install vnstat && brew services start vnstat
+```
+Without it, NET KIT's built-in ledger tracks daily usage on its own.
+
+**4. (Optional) menu-bar readout** via [SwiftBar](https://github.com/swiftbar/SwiftBar):
+```sh
+brew install --cask swiftbar
+```
+Point SwiftBar's plugin folder at `swiftbar-plugins/`, then enable **Launch at Login** in its preferences.
+
+**5. (Optional) run at login** — keeps the dashboard always available:
+```sh
+# edit WorkingDirectory in packaging/com.jservo.netkit.plist to your clone path, then:
+make service-mac
+```
+
+---
+
+### 🐧 Linux
+
+**1. Check Python** (install if needed):
+```sh
+python3 --version
+# Debian/Ubuntu:  sudo apt install python3
+# Fedora:         sudo dnf install python3
+# Arch:           sudo pacman -S python
+```
+
+**2. Install and run** — pick one:
+
+```sh
+# A) One-file executable (simplest)
+curl -L -o netkit.pyz https://github.com/bigjoe-oti/NETKIT/releases/latest/download/netkit.pyz
+python3 netkit.pyz
+
+# B) As a command
+git clone https://github.com/bigjoe-oti/NETKIT.git && cd NETKIT
+make install        # pipx install . → `netkit`   (pipx: sudo apt install pipx)
+netkit
+
+# C) From source
+git clone https://github.com/bigjoe-oti/NETKIT.git && cd NETKIT
+python3 -m netkit
+```
+
+**3. (Recommended) daily history with vnStat:**
+```sh
 sudo apt install vnstat && sudo systemctl enable --now vnstat   # Debian/Ubuntu
 ```
-Without vnStat, NET KIT's built-in SQLite ledger takes over automatically.
 
-## Run at startup
+**4. (For the live apps/ports panel)** ensure `ss` is present — it usually is via `iproute2`:
+```sh
+sudo apt install iproute2
+```
 
-- **macOS:** edit the path in `packaging/com.jservo.netkit.plist`, then `make service-mac`.
-- **Linux:** edit `packaging/netkit.service`, then `make service-linux` (systemd `--user`).
-- **Windows:** register `python -m netkit` (or `netkit.pyz`) with Task Scheduler at logon; use `pythonw` to run without a console window.
+**5. (Optional) speed test** needs the Ookla CLI or `speedtest-cli`:
+```sh
+sudo apt install speedtest-cli        # or install the official Ookla `speedtest`
+```
+
+**6. (Optional) run at login** as a systemd user service:
+```sh
+# edit WorkingDirectory in packaging/netkit.service to your clone path, then:
+make service-linux
+```
+
+---
+
+### 🪟 Windows
+
+**1. Install Python** from [python.org](https://www.python.org/downloads/) — during setup, tick **“Add python.exe to PATH.”** Verify in PowerShell:
+```powershell
+python --version
+```
+
+**2. Install and run** — pick one (run in PowerShell):
+
+```powershell
+# A) One-file executable (simplest)
+curl.exe -L -o netkit.pyz https://github.com/bigjoe-oti/NETKIT/releases/latest/download/netkit.pyz
+python netkit.pyz
+
+# B) From source
+git clone https://github.com/bigjoe-oti/NETKIT.git
+cd NETKIT
+python -m netkit
+
+# C) As a command
+pip install pipx
+pipx install .
+netkit
+```
+Then open **http://127.0.0.1:8787**.
+
+**3. (Optional) speed test** needs the [Ookla `speedtest` CLI](https://www.speedtest.net/apps/cli) (or `pip install speedtest-cli`). Without it, every other panel still works; the speed-test button reports that no engine is installed.
+
+> **Note:** vnStat and SwiftBar do not exist on Windows. NET KIT automatically uses its **built-in SQLite ledger** for daily history, and the live apps/ports panel uses PowerShell (connection counts). Everything else works the same.
+
+**4. (Optional) run at login** with Task Scheduler:
+- Open **Task Scheduler → Create Task**.
+- Trigger: **At log on**.
+- Action: **Start a program** → `pythonw` → arguments `-m netkit` (or point it at `netkit.pyz`). Using `pythonw` runs it silently with no console window.
+- Save. NET KIT now starts with Windows.
+
+---
+
+### Build the executable yourself (any OS)
+
+```sh
+make build          # produces dist/netkit.pyz
+# or directly:
+python3 -m zipapp netkit -m "netkit.server:main" -p "/usr/bin/env python3" -o netkit.pyz
+```
 
 ## Configuration (env)
 
