@@ -38,6 +38,12 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jservo.netdash.plist
 
 For the menu bar readout: `brew install --cask swiftbar`, point its plugin folder at `swiftbar-plugins/`.
 
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) — components, data flow, and the design decisions (including why the repo must live outside `~/Desktop`)
+- [HTTP API](docs/API.md) — all seven endpoints with sample responses
+- [Troubleshooting](docs/TROUBLESHOOTING.md) — real problems hit during development and their fixes
+
 ## Notes
 
 - Usage history accrues from the day vnStat starts; give it a week to get interesting.
