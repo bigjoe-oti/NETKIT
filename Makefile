@@ -22,14 +22,7 @@ run:
 # Single-file executable: a zipapp. Runs anywhere with Python 3.9+.
 #   ./dist/netkit.pyz   or   python3 dist/netkit.pyz
 build pyz:
-	@rm -rf build_stage $(DIST)
-	@mkdir -p build_stage $(DIST)
-	@cp -r netkit build_stage/netkit
-	@find build_stage -name '__pycache__' -type d -prune -exec rm -rf {} +
-	$(PY) -m zipapp build_stage -m "netkit.server:main" -p "/usr/bin/env python3" -o $(PYZ)
-	@chmod +x $(PYZ)
-	@rm -rf build_stage
-	@echo "built $(PYZ)"
+	$(PY) tools/build_pyz.py
 
 wheel:
 	$(PY) -m pip install --quiet --upgrade build

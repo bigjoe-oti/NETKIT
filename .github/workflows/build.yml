@@ -23,13 +23,13 @@ jobs:
       - name: Import check
         run: python -c "import netkit, netkit.server, netkit.probes, netkit.ledger; print('import OK', netkit.__version__)"
       - name: Build single-file executable (zipapp)
-        run: python -m zipapp netkit -m "netkit.server:main" -o netkit.pyz
+        run: python tools/build_pyz.py
       - name: Boot test (start, probe, stop)
         shell: bash
         run: |
-          python netkit.pyz &
+          python dist/netkit.pyz &
           PID=$!
-          sleep 4
+          sleep 6
           curl -fsS http://127.0.0.1:8787/ >/dev/null && echo "dashboard served"
           curl -fsS http://127.0.0.1:8787/api >/dev/null && echo "ledger api served"
           kill $PID 2>/dev/null || true
@@ -49,13 +49,13 @@ jobs:
           python-version: "3.11"
       - name: Build artifacts
         run: |
-          python -m zipapp netkit -m "netkit.server:main" -p "/usr/bin/env python3" -o netkit.pyz
+          python tools/build_pyz.py
           python -m pip install --upgrade build
           python -m build
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            netkit.pyz
+            dist/netkit.pyz
             dist/*.whl
             dist/*.tar.gz
