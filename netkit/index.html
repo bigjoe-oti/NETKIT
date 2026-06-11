@@ -48,10 +48,39 @@
     padding: 8px 10px; font-size: 12px; line-height: 1.5;
     box-shadow: 0 4px 14px rgba(0,0,0,.5);
   }
-  select {
-    background: var(--card); border: 1px solid #27395C; border-radius: 9999px;
-    padding: 6px 14px; font-size: 13px; color: #C8D6EE; outline: none;
+  /* custom interface dropdown — glass, on-brand, replaces the native <select> */
+  .ifdd { position: relative; }
+  .ifdd-btn {
+    display: inline-flex; align-items: center; gap: .55rem;
+    padding: .3rem .55rem .3rem .8rem; border-radius: 9999px;
+    background: rgba(16,26,45,.6); color: #C8D6EE; font-size: 13px; cursor: pointer;
+    box-shadow: inset 0 0 0 1px rgba(125,155,205,.16), inset 0 1px 0 rgba(255,255,255,.05);
+    transition: box-shadow .15s ease, background .15s ease;
   }
+  .ifdd-btn:hover { background: rgba(20,32,54,.85); box-shadow: inset 0 0 0 1px rgba(51,177,232,.4), inset 0 1px 0 rgba(255,255,255,.06); }
+  .ifdd-btn .chev { transition: transform .2s ease; color: #6B7C9C; }
+  .ifdd[data-open="1"] .chev { transform: rotate(180deg); }
+  .ifdd-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--rx); box-shadow: 0 0 0 3px rgba(51,177,232,.16); }
+  .ifdd-menu {
+    position: absolute; right: 0; top: calc(100% + 8px); z-index: 60;
+    min-width: 230px; padding: 6px; border-radius: 14px;
+    background: rgba(13,20,36,.78);
+    -webkit-backdrop-filter: blur(18px) saturate(1.6); backdrop-filter: blur(18px) saturate(1.6);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.07), inset 0 0 0 1px rgba(140,165,210,.12), 0 14px 40px rgba(3,8,20,.55);
+    opacity: 0; transform: translateY(-6px) scale(.98); pointer-events: none;
+    transition: opacity .14s ease, transform .14s ease;
+  }
+  .ifdd[data-open="1"] .ifdd-menu { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+  .ifdd-item {
+    display: flex; align-items: center; gap: .6rem; width: 100%;
+    padding: .5rem .6rem; border-radius: 9px; cursor: pointer; text-align: left;
+    background: transparent; transition: background .12s ease;
+  }
+  .ifdd-item:hover { background: rgba(140,165,210,.08); }
+  .ifdd-item[data-active="1"] { background: rgba(51,177,232,.12); box-shadow: inset 2px 0 0 var(--rx); }
+  .ifdd-name { font-size: 13px; font-weight: 600; color: #E2E8F0; }
+  .ifdd-raw { font-size: 10px; color: #6B7C9C; }
+  .ifdd-total { margin-left: auto; font-size: 12px; color: #9FB2D4; }
   .footlink { color: var(--rx); text-decoration: none; }
   .footlink:hover { text-decoration: underline; }
   .pill {
@@ -98,7 +127,15 @@
       </div>
     </div>
     <div class="flex items-center gap-3 text-sm">
-      <select id="ifaceSel"></select>
+      <div class="ifdd" id="ifdd" data-open="0">
+        <button class="ifdd-btn" id="ifddBtn" aria-haspopup="listbox" aria-expanded="false">
+          <span class="ifdd-dot"></span>
+          <span id="ifddLabel" class="font-medium text-slate-200">interface</span>
+          <span id="ifddTotal" class="num text-slate-500"></span>
+          <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="ifdd-menu" id="ifddMenu" role="listbox"></div>
+      </div>
       <span id="updated" class="text-slate-500 num"></span>
     </div>
   </header>
@@ -384,14 +421,14 @@ function chart(container, entries, opts) {
 
 function render() {
   if (!DATA) return;
-  const ifaces = DATA.interfaces.filter(i => !['gif0','stf0','lo0'].includes(i.name));
-  const sel = $('ifaceSel');
-  sel.innerHTML = ifaces.map(i => {
-    const tot = i.traffic.total.rx + i.traffic.total.tx;
-    return `<option value="${i.name}" ${i.name === IFACE ? 'selected' : ''}>${i.name}${tot ? ' · ' + fmt(tot) : ''}</option>`;
-  }).join('');
+  const all = DATA.interfaces.filter(i => !['gif0','stf0','lo0'].includes(i.name));
+  // show interfaces that carry traffic; always keep the selected one visible
+  const live = all.filter(i => (i.traffic.total.rx + i.traffic.total.tx) > 0 || i.name === IFACE);
+  const ifaces = live.length ? live : all;
   const itf = ifaces.find(i => i.name === IFACE) || ifaces[0];
   if (!itf) return;
+  IFACE = itf.name;
+  renderIfaceDropdown(ifaces, itf);
   const t = itf.traffic;
   const now = new Date();
   const todayKey = dkey({year: now.getFullYear(), month: now.getMonth()+1, day: now.getDate()});
@@ -648,11 +685,58 @@ $('speedBtn').addEventListener('click', async () => {
   }
 });
 
-$('ifaceSel').addEventListener('change', e => {
-  IFACE = e.target.value;
-  localStorage.setItem('netdash.iface', IFACE);
-  render();
+// friendly interface labels, cross-platform heuristic
+function ifaceLabel(name) {
+  const n = name.toLowerCase();
+  if (n === 'en0' || n.startsWith('wl') || n.startsWith('wlan') || n.startsWith('wlp')) return 'Wi-Fi';
+  if (n.startsWith('en') || n.startsWith('eth') || n.startsWith('enp') || n.startsWith('eno')) return 'Ethernet';
+  if (n.startsWith('utun') || n.startsWith('tun') || n.startsWith('tap') || n.startsWith('ppp') || n.startsWith('wg')) return 'VPN';
+  if (n.startsWith('awdl')) return 'AirDrop';
+  if (n.startsWith('bridge') || n.startsWith('br')) return 'Bridge';
+  if (n.startsWith('anpi') || n.startsWith('ap')) return 'Apple internal';
+  if (n.startsWith('llw')) return 'Low-latency Wi-Fi';
+  if (n === 'lo0' || n.startsWith('lo')) return 'Loopback';
+  return name;
+}
+
+function renderIfaceDropdown(ifaces, active) {
+  const tot = active.traffic.total.rx + active.traffic.total.tx;
+  $('ifddLabel').textContent = ifaceLabel(active.name);
+  $('ifddTotal').textContent = tot ? '· ' + fmt(tot) : '';
+  $('ifddMenu').innerHTML = ifaces.map(i => {
+    const t = i.traffic.total.rx + i.traffic.total.tx;
+    const label = ifaceLabel(i.name);
+    const showRaw = label !== i.name;
+    return `<button class="ifdd-item" role="option" data-iface="${i.name}" data-active="${i.name === active.name ? 1 : 0}">
+      <span class="ifdd-dot" style="opacity:${i.name === active.name ? 1 : .35}"></span>
+      <span><span class="ifdd-name">${label}</span>${showRaw ? ` <span class="ifdd-raw">${i.name}</span>` : ''}</span>
+      <span class="ifdd-total num">${t ? fmt(t) : '—'}</span>
+    </button>`;
+  }).join('');
+  $('ifddMenu').querySelectorAll('.ifdd-item').forEach(el => {
+    el.addEventListener('click', () => {
+      IFACE = el.dataset.iface;
+      localStorage.setItem('netdash.iface', IFACE);
+      setIfddOpen(false);
+      render();
+    });
+  });
+}
+
+function setIfddOpen(open) {
+  const dd = $('ifdd');
+  dd.dataset.open = open ? '1' : '0';
+  $('ifddBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+$('ifddBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  setIfddOpen($('ifdd').dataset.open !== '1');
 });
+document.addEventListener('click', e => {
+  if (!$('ifdd').contains(e.target)) setIfddOpen(false);
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') setIfddOpen(false); });
 
 async function load() {
   try {
