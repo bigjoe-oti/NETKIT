@@ -1,0 +1,15 @@
+# Linux systemd --user unit for NET KIT.
+# Edit WorkingDirectory to your clone path, then:  make service-linux
+[Unit]
+Description=NET KIT - Daily Internet Usage Tracker
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/netkit
+ExecStart=/usr/bin/env python3 -m netkit
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

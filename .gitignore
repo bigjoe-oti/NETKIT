@@ -1,4 +1,15 @@
-# personal telemetry - never publish
+# personal telemetry - never publish (now lives in ~/.netkit anyway)
 ip_history.jsonl
 speedtests.jsonl
+*.db
+*.db-wal
+*.db-shm
+
+# build artifacts
+dist/
+build/
+build_stage/
+*.pyz
+*.egg-info/
+__pycache__/
 .DS_Store

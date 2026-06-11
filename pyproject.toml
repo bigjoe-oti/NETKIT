@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "netkit"
+version = "1.1.0"
+description = "NET KIT - Daily Internet Usage Tracker. Cross-platform, zero-dependency. J. Servo LLC Smart Tech Stack."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "J. Servo LLC", email = "hello@jservo.com" }]
+keywords = ["bandwidth", "network", "monitor", "usage", "speedtest", "menu-bar"]
+classifiers = [
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python :: 3",
+  "Topic :: System :: Networking :: Monitoring",
+]
+dependencies = []   # stdlib only, by design
+
+[project.urls]
+Homepage = "https://github.com/bigjoe-oti/NETKIT"
+Repository = "https://github.com/bigjoe-oti/NETKIT"
+
+[project.scripts]
+netkit = "netkit.server:main"
+
+[tool.setuptools]
+packages = ["netkit"]
+
+[tool.setuptools.package-data]
+netkit = ["index.html", "logo.png"]

@@ -1,21 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- macOS LaunchAgent. Edit WorkingDirectory to your clone path, then:
+     make service-mac   (or copy to ~/Library/LaunchAgents and launchctl bootstrap) -->
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.jservo.netdash</string>
+    <string>com.jservo.netkit</string>
     <key>ProgramArguments</key>
     <array>
         <string>/usr/bin/python3</string>
-        <string>/Users/OTI_1/netdash/server.py</string>
+        <string>-m</string>
+        <string>netkit</string>
     </array>
+    <key>WorkingDirectory</key>
+    <string>REPLACE_WITH_CLONE_PATH</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/tmp/netdash.log</string>
+    <string>/tmp/netkit.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/netdash.log</string>
+    <string>/tmp/netkit.log</string>
 </dict>
 </plist>
